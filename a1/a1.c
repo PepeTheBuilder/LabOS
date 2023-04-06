@@ -16,7 +16,7 @@ char *filtering_options = "";
 int filtering = 0;
 int perm_exe = 0;
 char *dir_path="";
-
+//-------------------- Listing-----------------
 int has_exec_permission(const char* filepath) {
     struct stat filestat;
 
@@ -78,7 +78,9 @@ void listDirRecusive(char *dirName)
 	if (dir == 0)
 	{
 		//perror("Error opening directory");
-		exit(4);
+		closedir(dir);
+		
+		return;
 	}
 	listDir(dirName);
 
@@ -112,7 +114,7 @@ int search_dir(char *dir_name, char *searched_name){
 	if (dir == 0)
 	{
 		if (search_ECHO)printf("Error opening directory %s\n", dir_name);
-		// exit(4);
+		closedir(dir);
 		return 0;
 	}
 
@@ -147,6 +149,7 @@ int search_dir(char *dir_name, char *searched_name){
 				//printf("%s\n", dirEntry->d_name);
 			//if (search_ECHO)
 				printf("%s\n", name);
+				closedir(dir);
 			return gasit;
 		}
 	}
@@ -215,11 +218,113 @@ int search_tree(char *dir_name, char *searched_name){
 	closedir(dir);
 	return 0;
 }
+//------------------- Listing end---------------
+//------------------- Parse --------------------
 
-int parse(char *dirName){
+int parse(char* filename) {
+
+    int fd = open(filename, O_RDONLY);
+    if (fd < 0) {
+        printf("Error opening file: \n");
+        return -1;
+    }
+
+    off_t end_offset = lseek(fd, 0, SEEK_END);
+    if (end_offset < 0) {
+        printf("Error seeking to end of file:\n");
+        close(fd);
+        return -1;
+    }
+
+    off_t offset = end_offset - 4;
+    if (offset < 0) {
+        offset = 0;
+		printf("Error reading file: \n");
+        return -1;
+    }
+
+    int header_size=0;
+	char magic[3]={0};
+
+    int red=pread(fd, &header_size,2,offset);
+	offset+=2;
+	int red2=pread(fd,magic,2,offset);
+	offset+=2;
+
+    if (red==-1||red2==-1) {
+        printf("Error reading file: %d, %d \n",red,red2);
+        return -1;
+    }
+
+    if (red == 0|| red2==0) {
+        printf("File is empty/not big enough\n");
+        close(fd);
+        return -1;
+    }
+
+	if(strcmp(magic,"wt")==0)
+	{
+		printf("ERROR\n");
+		printf("wrong magic\n"); //ERROR \n wrong magic|version|sect_nr|sect_types \n
+		return -2;
+	}
+
 	
+	offset= end_offset- header_size;    
+	if (offset < 0) {
+        offset = 0;
+		printf("Error reading file: \n");
+        return -1;
+    }
+
+	int variation=0;
+	pread(fd, &variation,2,offset);
+	offset+=2;
+	if(variation>=152 || variation<=100){
+		printf("ERROR\n");
+		printf("wrong version\n"); //ERROR \n wrong magic|version|sect_nr|sect_types \n
+		return -2;
+	}
+
+	int nrOfSections=0;
+	pread(fd, &nrOfSections,1,offset);
+	offset++;
+	if( nrOfSections<8 || nrOfSections>13) {
+		printf("ERROR\n");
+		printf("wrong sect_nr\n"); //ERROR \n wrong magic|version|sect_nr|sect_types \n
+		return -2;
+	}
+
+	
+	printf("SUCCESS\n");
+	printf("version=%d\n", variation);
+	printf("nr_sections=%d\n",nrOfSections);
+	for(int i=1; i<=nrOfSections; i++){
+	
+		char aux[4],buffer[25]={0};
+
+		pread(fd, &buffer,25,offset);
+		offset= offset+25;
+
+		char name[16];
+		for(int i=0; i<16;i++)
+			name[i]=buffer[i];
+
+		int type= (int)buffer[16];
+
+		for(int i=0; i<16;i++)
+			name[i]=buffer[i];
+		int offset= atoi()
+
+		printf("section%d: ", i);
+		printf("%s\n",buffer);
+	}
+	offset=0;
+    close(fd);
+    return 0;
 }
 
+//-----------------------Parse end ---------------------------
 int readDirections(int argc, char **argv)
 {
 	if (strcmp(argv[1], "variant") == 0)
@@ -281,7 +386,8 @@ int readDirections(int argc, char **argv)
 		if (strncmp(argv[2], "path=", 5) == 0)
 		{
 				dir_path = &argv[2][5];
-				printf("%s\n",dir_path);
+				//printf("%s\n",dir_path);
+				parse(dir_path);
 
 		}
 		else {
