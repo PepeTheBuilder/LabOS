@@ -17,7 +17,22 @@ int filtering = 0;
 int perm_exe = 0;
 char *dir_path="";
 
+int has_exec_permission(const char* filepath) {
+    struct stat filestat;
 
+    if (stat(filepath, &filestat) == -1) {
+        perror("Error getting file status");
+        //exit(2);
+		return 0;
+    }
+
+    // Check if the owner has execute permission
+    if (filestat.st_mode & S_IXUSR ) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
 void listDir(char *dirName){
 
 	DIR *dir;
@@ -41,8 +56,13 @@ void listDir(char *dirName){
 			continue;
 		}
 
-
-		printf("%s/%s\n", dirName,dirEntry->d_name);
+		if(perm_exe==0){
+		printf("%s\n",name);
+		}
+		else {
+			if(has_exec_permission(name))
+				printf("%s\n",name);
+		}
 	}
 
 	closedir(dir);
@@ -80,7 +100,6 @@ void listDirRecusive(char *dirName)
 
 	closedir(dir);
 }
-
 int search_dir(char *dir_name, char *searched_name){
 
 
@@ -137,7 +156,6 @@ int search_dir(char *dir_name, char *searched_name){
 		printf("nope \n");
 	return 0;
 }
-
 int search_tree(char *dir_name, char *searched_name){
 	int search=0;
 	if(filtering==0)
@@ -198,6 +216,10 @@ int search_tree(char *dir_name, char *searched_name){
 	return 0;
 }
 
+int parse(char *dirName){
+	
+}
+
 int readDirections(int argc, char **argv)
 {
 	if (strcmp(argv[1], "variant") == 0)
@@ -241,13 +263,32 @@ int readDirections(int argc, char **argv)
 		}
 		else {
 			//search_dir(dir_path,filtering_options);
-			if(filtering==0)
+			if(filtering==0){
 			listDir(dir_path);
-			else
+			}
+			else{
 			search_dir(dir_path,filtering_options);
+			}
 		}
 	}
+	else if(strcmp(argv[1],"parse")==0){
 
+		if (argc != 3)
+		{
+			printf("Usage: %s parse path=<dir_path>\n", argv[0]);
+			return 0;
+		}
+		if (strncmp(argv[2], "path=", 5) == 0)
+		{
+				dir_path = &argv[2][5];
+				printf("%s\n",dir_path);
+
+		}
+		else {
+			printf("Usage: %s parse path=<dir_path>\n", argv[0]);
+			return 0;
+		}
+	}
 	return 0;
 }
 
