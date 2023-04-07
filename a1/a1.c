@@ -297,42 +297,48 @@ int parse(char* filename) {
 		return -2;
 	}
 
-	char output[MAX_PATH_LEN]={0};
+	char output[100][50]={0};
 
 	for(int i=1; i<=nrOfSections; i++){
 	
-		char aux[4],buffer[25]={0};
+		char name[16]={0};
+		int type=0,size_sect=0,offset_sect=0;
+		int size_name=pread(fd, &name,16,offset);
+		name[size_name]=0;
+		offset= offset+16; 
+		
+		pread(fd,&type,1,offset);
+		offset++;
 
-		pread(fd, &buffer,25,offset);
-		offset= offset+25+2; // +2 from the end of the sectin "10" of 0x0A in hexa
+		pread(fd,&offset_sect,4,offset);
+		offset+=4;
 
-		char name[16];
-		for(int j=0; j<16;j++)
-			name[j]=buffer[j];
+		pread(fd,&size_sect,4,offset);
+		offset+=4;
+		
+		//offset= offset+2; // +2 from the end of the sectin "10" of 0x0A in hexa
 
-		int type= (int)buffer[16];
-
-		for(int j=0; j<4;j++)
-			aux[j]=buffer[j+17];
 		//int offset_sect= atoi(aux);
-
-		for(int j=0; j<4;j++)
-			aux[j]=buffer[j+21];
-		int size_sect= atoi(aux);
-
 		if (type != 31 && type != 66 && type != 32 && type != 73 && type != 91){
+			//31 66 32 73 91
 			printf("ERROR\n");
 			printf("wrong sect_types\n"); //ERROR \n wrong magic|version|sect_nr|sect_types \n
 			return -2;
 		}
 
-		sprintf(output+strlen(output),"section%d: %s %d %d\n",i,name,type,size_sect);
+		//sprintf(output+strlen(output)+1,"section%d: %s %d %d \n",i,name,type,size_sect);
+		//printf("section%d: %s %d %d \n",i,name,type,size_sect);
+		sprintf(output[i],"section%d: %s %d %d",i,name,type,size_sect);
+		
 	}
 	printf("SUCCESS\n");
 	printf("version=%d\n", variation);
 	printf("nr_sections=%d\n",nrOfSections);
-	printf("%s",output);
-
+	int i=1;
+	while(output[i][0]!=0){
+	printf("%s \n",output[i]);
+	i++;
+	}
 
 	offset=0;
     close(fd);
