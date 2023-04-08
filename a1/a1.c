@@ -10,13 +10,21 @@
 
 #define MAX_PATH_LEN 4096
 #define search_ECHO 0
+#define DEBUG 1
+int parse_echo=1;
+int extract_echo=1;
+
 
 int recursive = 0;
 char *filtering_options = "";
 int filtering = 0;
 int perm_exe = 0;
 char *dir_path="";
-//-------------------- Listing-----------------
+int parse_section_size[100]={0};
+int parse_section_offset[100]={0};
+int nr_of_section=0;
+int nr_of_line_in_section=0;
+//-------------------- Listing-----------------------------
 int has_exec_permission(const char* filepath) {
     struct stat filestat;
 
@@ -218,19 +226,20 @@ int search_tree(char *dir_name, char *searched_name){
 	closedir(dir);
 	return 0;
 }
-//------------------- Listing end---------------
-//------------------- Parse --------------------
-
+//------------------- Listing end---------------------------
+//------------------- Parse ---------------------------------
 int parse(char* filename) {
 
     int fd = open(filename, O_RDONLY);
     if (fd < 0) {
+		if(parse_echo)
         printf("Error opening file: \n");
-        return -1;
+        return -10;
     }
 
     off_t end_offset = lseek(fd, 0, SEEK_END);
     if (end_offset < 0) {
+		if(parse_echo)
         printf("Error seeking to end of file:\n");
         close(fd);
         return -1;
@@ -239,6 +248,7 @@ int parse(char* filename) {
     off_t offset = end_offset - 4;
     if (offset < 0) {
         offset = 0;
+		if(parse_echo)
 		printf("Error reading file: \n");
         return -1;
     }
@@ -252,29 +262,29 @@ int parse(char* filename) {
 	offset+=2;
 
     if (red==-1||red2==-1) {
+		if(parse_echo)
         printf("Error reading file: %d, %d \n",red,red2);
         return -1;
     }
 
     if (red == 0|| red2==0) {
+		if(parse_echo)
         printf("File is empty/not big enough\n");
         close(fd);
         return -1;
     }
-
-	//printf("%s\n", magic);
-	
 	if(strcmp(magic,"wT")!=0)
 	{
+		if(parse_echo)
 		printf("ERROR\n");
+		if(parse_echo)
 		printf("wrong magic\n"); //ERROR \n wrong magic|version|sect_nr|sect_types \n
 		return -2;
 	}
-
-	
 	offset= end_offset- header_size;    
 	if (offset < 0) {
         offset = 0;
+		if(parse_echo)
 		printf("Error reading file: \n");
         return -1;
     }
@@ -283,7 +293,9 @@ int parse(char* filename) {
 	pread(fd, &variation,2,offset);
 	offset+=2;
 	if(variation>=152 || variation<=100){
+		if(parse_echo)
 		printf("ERROR\n");
+		if(parse_echo)
 		printf("wrong version\n"); //ERROR \n wrong magic|version|sect_nr|sect_types \n
 		return -2;
 	}
@@ -292,7 +304,9 @@ int parse(char* filename) {
 	pread(fd, &nrOfSections,1,offset);
 	offset++;
 	if( nrOfSections<8 || nrOfSections>13) {
+		if(parse_echo)
 		printf("ERROR\n");
+		if(parse_echo)
 		printf("wrong sect_nr\n"); //ERROR \n wrong magic|version|sect_nr|sect_types \n
 		return -2;
 	}
@@ -316,21 +330,20 @@ int parse(char* filename) {
 		pread(fd,&size_sect,4,offset);
 		offset+=4;
 		
-		//offset= offset+2; // +2 from the end of the sectin "10" of 0x0A in hexa
-
-		//int offset_sect= atoi(aux);
 		if (type != 31 && type != 66 && type != 32 && type != 73 && type != 91){
 			//31 66 32 73 91
+			if(parse_echo)
 			printf("ERROR\n");
+			if(parse_echo)
 			printf("wrong sect_types\n"); //ERROR \n wrong magic|version|sect_nr|sect_types \n
 			return -2;
 		}
-
-		//sprintf(output+strlen(output)+1,"section%d: %s %d %d \n",i,name,type,size_sect);
-		//printf("section%d: %s %d %d \n",i,name,type,size_sect);
 		sprintf(output[i],"section%d: %s %d %d",i,name,type,size_sect);
-		
+		parse_section_size[i]=size_sect;
+		parse_section_offset[i]=offset_sect;
 	}
+	nr_of_section=nrOfSections;
+	if(parse_echo){
 	printf("SUCCESS\n");
 	printf("version=%d\n", variation);
 	printf("nr_sections=%d\n",nrOfSections);
@@ -339,13 +352,113 @@ int parse(char* filename) {
 	printf("%s \n",output[i]);
 	i++;
 	}
-
+	}
 	offset=0;
     close(fd);
     return 1;
 }
+//-----------------------Parse end --------------------------
+//----------------------- Extract  -------------------------
+int extract(char* file_path, int line, int section){
 
-//-----------------------Parse end ---------------------------
+
+    int fd = open(file_path, O_RDONLY);
+    if (fd < 0) {
+		if(extract_echo)
+        printf("Error opening file: \n");
+        return -10;
+    }
+	parse_echo=0;
+	int readed=parse(file_path);
+	parse_echo=1;
+	if(DEBUG)for(int i=0;i<14;i++)
+		printf("i:%d, offset:%d,size %d\n",i,parse_section_offset[i],parse_section_size[i]);
+	if(readed == -10 || readed== -2){
+			if(extract_echo){
+			printf("ERROR\n");
+			printf("invalid file\n"); //invalid file|section|line
+		}
+		return -2;
+	}
+	if(section>nr_of_section){
+		if(extract_echo){
+			printf("ERROR\n");
+			printf("invalid section\n"); //invalid file|section|line
+		}
+		return -1;
+	}
+    off_t offset = lseek(fd, 0, SEEK_END);
+    if (offset < 0) {
+		if(parse_echo)
+        printf("Error seeking to end of file:\n");
+        close(fd);
+        return -1;
+    }
+	int sizeSection=parse_section_size[section];
+	offset= parse_section_offset[section];
+	if(DEBUG)
+		printf("malloc size %d, offset:%ld, offsetSection %d\n",sizeSection+2+100,offset,parse_section_offset[section]);
+	char* sectionText= malloc(sizeSection+2);
+	
+	pread(fd, sectionText,sizeSection,offset);
+
+	
+
+	sectionText[strlen(sectionText)+1]='\n';
+	int strlenSectionText=strlen(sectionText);
+	for(int i=0; i<=strlenSectionText/2; i++ ){
+		// reverse the orders of the letters
+		char aux=sectionText[i];
+		sectionText[i]=sectionText[strlenSectionText-i-1];
+		sectionText[strlenSectionText-i-1]=aux;
+	}
+	if(DEBUG)printf("exit while: %s\n", sectionText);
+	if(DEBUG)printf("s-a invartit! \n" );
+	sectionText[strlenSectionText+1]=0;
+	int nrLines=1;
+	char *auxPointer=strchr(sectionText,'\n');
+	// number all the lines
+	while(nrLines<=sizeSection){
+		nrLines++;
+		auxPointer=strchr(auxPointer+1, '\n');
+	if(auxPointer==NULL){
+		break;
+	}
+	}
+	nr_of_line_in_section = nrLines;
+	if(DEBUG)printf("%d\n", nr_of_line_in_section);
+	if(extract_echo){
+		// check the nr of lines >= the wanted line
+		// a line ends with x"0A"
+		//nrLines++;
+		char *point=strchr(sectionText,'\n');;
+		if(nr_of_line_in_section>line)
+		{for(int i=0;i<=line;i++)
+		point=strchr(point,'\n');
+		if(point!=NULL){
+			if(DEBUG)printf("nr de lini %d,%d\n", nrLines,line);
+		}
+		}
+		else{
+			printf("ERROR\n");
+			printf("invalid line\n"); //invalid file|section|line
+		return -1;
+		}
+		printf("SUCCESS\n");
+		int i=1;
+		while(point[i]!='\n'&&(point+i!=NULL && point+i+1!=NULL)){
+			printf("%c",point[i]);
+			i++;
+		}
+
+		printf("\n");
+
+	}
+
+
+	return 0;
+}
+//---------------------- Extract End  ----------------------
 int readDirections(int argc, char **argv)
 {
 	if (strcmp(argv[1], "variant") == 0)
@@ -413,6 +526,32 @@ int readDirections(int argc, char **argv)
 		}
 		else {
 			printf("Usage: %s parse path=<dir_path>\n", argv[0]);
+			return 0;
+		}
+	}
+	else if(strcmp(argv[1],"extract")==0){
+		if (argc != 5)
+		{
+			printf("Usage: %s extract path=<dir_path> section=<int> line=<int>\n", argv[0]);
+			return 0;
+		}
+		int section=-1, line=-1;
+		for (int i = 1; i < argc; i++) {
+		 if (strncmp(argv[i], "path=", 5) == 0) {
+            dir_path = &argv[i][5];
+			//if(DEBUG)printf("dir_path: %s\n",dir_path);
+        } else if (strncmp(argv[i], "section=", 8) == 0) {
+            section=atoi(argv[i]+8);
+			//if(DEBUG)printf("section: %d\n",section);
+        } else if (strncmp(argv[i], "line=", 5) == 0) {
+            line=atoi(argv[i]+5);
+			//if(DEBUG)printf("line: %d\n",line);
+        	}
+   		}
+		if(section!=-1&& line!=-1 && strlen(dir_path)>2){
+			extract(dir_path,line,section);
+		} else {
+			printf("WRONG INPUT! \nUsage: %s extract path=<dir_path> section=<int> line=<int>\n", argv[0]);
 			return 0;
 		}
 	}
