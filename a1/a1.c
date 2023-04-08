@@ -466,10 +466,8 @@ int extract(char* file_path, int line, int section){
 		printf("\n");
 
 	}
-	if(extract_echo){
 	free(sectionText);
 	close(fd);
-	}
 	return 0;
 }
 //---------------------- Extract End  ----------------------
@@ -505,6 +503,7 @@ void findall(char *dirName){
 	if (dir == 0)
 	{
 		//printf("Error opening directory");
+		closedir(dir);
 		return;
 	}
 
@@ -519,7 +518,6 @@ void findall(char *dirName){
 		if (S_ISREG(inode.st_mode)) 
 			printFindall(name);
 	}
-
 	closedir(dir);
 }
 
@@ -534,7 +532,6 @@ void findallRecusive(char *dirName){
 	{
 		//perror("Error opening directory");
 		closedir(dir);
-		
 		return;
 	}
 	findall(dirName);
@@ -556,6 +553,9 @@ void findallRecusive(char *dirName){
 	}
 
 	closedir(dir);
+	free(dir);
+	free(dirEntry);
+	return;
 } 
 //---------------------  Findall end -----------------------
 int readDirections(int argc, char **argv)
