@@ -11,6 +11,7 @@
 #define MAX_PATH_LEN 4096
 #define search_ECHO 0
 #define DEBUG 0
+#define DEBUG_FINDALL 1
 int parse_echo=1;
 int extract_echo=1;
 
@@ -24,6 +25,7 @@ int parse_section_size[100]={0};
 int parse_section_offset[100]={0};
 int nr_of_section=0;
 int nr_of_line_in_section=0;
+
 //-------------------- Listing-----------------------------
 int has_exec_permission(const char* filepath) {
     struct stat filestat;
@@ -354,14 +356,13 @@ int parse(char* filename) {
 	}
 	}
 	offset=0;
+	if(parse_echo)
     close(fd);
     return 1;
 }
 //-----------------------Parse end --------------------------
 //----------------------- Extract  -------------------------
 int extract(char* file_path, int line, int section){
-
-
     int fd = open(file_path, O_RDONLY);
     if (fd < 0) {
 		if(extract_echo)
@@ -465,12 +466,98 @@ int extract(char* file_path, int line, int section){
 		printf("\n");
 
 	}
-
+	if(extract_echo){
 	free(sectionText);
 	close(fd);
+	}
 	return 0;
 }
 //---------------------- Extract End  ----------------------
+//----------------------- Findall  -------------------------
+int findallbool(char*dirName, int line, int section){
+
+	int result = extract(dirName,line,section);
+	if(result == 0)
+		return 1;
+	return 0;
+}
+
+void printFindall(char*dirName){
+	int result=findallbool(dirName,1,1);
+	int ok=0;
+	for(int sections=2; sections<=nr_of_section;sections++){
+		result=findallbool(dirName,1,sections);
+		if(result==1&&nr_of_line_in_section==14) ok++;
+		if(ok>=2){
+			printf("%s\n",dirName);
+			break;
+		}
+	}
+}
+
+void findall(char *dirName){
+	DIR *dir;
+	struct dirent *dirEntry;
+	struct stat inode;
+	char name[MAX_PATH_LEN];
+
+	dir = opendir(dirName);
+	if (dir == 0)
+	{
+		//printf("Error opening directory");
+		return;
+	}
+
+	while ((dirEntry = readdir(dir)) != 0)
+	{
+		snprintf(name, MAX_PATH_LEN, "%s/%s", dirName, dirEntry->d_name);
+
+		lstat(name, &inode);
+		if (strcmp(dirEntry->d_name, ".") == 0 || strcmp(dirEntry->d_name, "..") == 0){
+			continue;
+		}
+		if (S_ISREG(inode.st_mode)) 
+			printFindall(name);
+	}
+
+	closedir(dir);
+}
+
+void findallRecusive(char *dirName){
+	DIR *dir;
+	struct dirent *dirEntry;
+	struct stat inode;
+	char name[MAX_PATH_LEN];
+
+	dir = opendir(dirName);
+	if (dir == 0)
+	{
+		//perror("Error opening directory");
+		closedir(dir);
+		
+		return;
+	}
+	findall(dirName);
+
+	while ((dirEntry = readdir(dir)) != 0)
+	{
+
+		snprintf(name, MAX_PATH_LEN, "%s/%s", dirName, dirEntry->d_name);
+
+		lstat(name, &inode);
+
+		if (S_ISDIR(inode.st_mode))
+		{
+			if (strcmp(dirEntry->d_name, ".") != 0 && strcmp(dirEntry->d_name, "..") != 0)
+			{
+				findallRecusive(name);
+			}
+		}
+	}
+
+	closedir(dir);
+} 
+//---------------------  Findall end -----------------------
 int readDirections(int argc, char **argv)
 {
 	if (strcmp(argv[1], "variant") == 0)
@@ -534,7 +621,6 @@ int readDirections(int argc, char **argv)
 				dir_path = &argv[2][5];
 				//printf("%s\n",dir_path);
 				parse(dir_path);
-
 		}
 		else {
 			printf("Usage: %s parse path=<dir_path>\n", argv[0]);
@@ -567,11 +653,32 @@ int readDirections(int argc, char **argv)
 			return 0;
 		}
 	}
+	else if(strcmp(argv[1],"findall")==0){
+		printf("SUCCESS\n");
+		if (argc != 3)
+		{
+			printf("Usage: %s findall path=<dir_path>\n", argv[0]);
+			return 0;
+		}
+		if (strncmp(argv[2], "path=", 5) == 0)
+		{		
+				parse_echo=0;
+				extract_echo=0;
+				dir_path = &argv[2][5];
+				findallRecusive(dir_path);
+		}
+		else {
+			printf("Usage: %s findall path=<dir_path>\n", argv[0]);
+			return 0;
+		}
+	}
 	return 0;
 }
 
 int main(int argc, char **argv)
 {
+	//if(DEBUG_FINDALL)printf("SUCCESS\n");
+	//printFindall("test_root/gYV5TqCoI/WUQAYeE3p/OzMXbM/TY9orYa2F/uggfOjKYuZ/LHdeb/ZjTd2Z.5sh");
 	if (argc < 1 || argv == NULL)
 	{
 		printf("Invalid arguments\n");
