@@ -10,7 +10,7 @@
 
 #define MAX_PATH_LEN 4096
 #define search_ECHO 0
-#define DEBUG 1
+#define DEBUG 0
 int parse_echo=1;
 int extract_echo=1;
 
@@ -366,6 +366,7 @@ int extract(char* file_path, int line, int section){
     if (fd < 0) {
 		if(extract_echo)
         printf("Error opening file: \n");
+		close(fd);
         return -10;
     }
 	parse_echo=0;
@@ -378,6 +379,7 @@ int extract(char* file_path, int line, int section){
 			printf("ERROR\n");
 			printf("invalid file\n"); //invalid file|section|line
 		}
+		 close(fd);
 		return -2;
 	}
 	if(section>nr_of_section){
@@ -399,12 +401,10 @@ int extract(char* file_path, int line, int section){
 	if(DEBUG)
 		printf("malloc size %d, offset:%ld, offsetSection %d\n",sizeSection+2+100,offset,parse_section_offset[section]);
 	char* sectionText= malloc(sizeSection+2);
-	
+	//-----------READ-------------
 	pread(fd, sectionText,sizeSection,offset);
-
-	
-
-	sectionText[strlen(sectionText)+1]='\n';
+	//------------READ------------
+	//sectionText[strlen(sectionText)+1]='\n';
 	int strlenSectionText=strlen(sectionText);
 	for(int i=0; i<=strlenSectionText/2; i++ ){
 		// reverse the orders of the letters
@@ -431,31 +431,43 @@ int extract(char* file_path, int line, int section){
 		// check the nr of lines >= the wanted line
 		// a line ends with x"0A"
 		//nrLines++;
-		char *point=strchr(sectionText,'\n');;
-		if(nr_of_line_in_section>line)
-		{for(int i=0;i<=line;i++)
-		point=strchr(point,'\n');
-		if(point!=NULL){
-			if(DEBUG)printf("nr de lini %d,%d\n", nrLines,line);
-		}
+		int lastLineOffset=-1;
+		nrLines=1;
+		if(nr_of_line_in_section>line){
+			for(int i=0;i<=strlenSectionText;i++){
+				if(nrLines==line)
+				break;
+				if(sectionText[i]=='\n'){
+
+					lastLineOffset=i;
+					nrLines++;
+					if(DEBUG){
+					//printf("nr de lini %d,%d,%d\n", nrLines,line,i);
+					printf("%d:%c\n",i,sectionText[i+1]);
+					}
+				}
+			}
 		}
 		else{
 			printf("ERROR\n");
 			printf("invalid line\n"); //invalid file|section|line
+		free(sectionText);
+		close(fd);
 		return -1;
 		}
 		printf("SUCCESS\n");
 		int i=1;
+		char *point= sectionText+lastLineOffset;
 		while(point[i]!='\n'&&(point+i!=NULL && point+i+1!=NULL)){
 			printf("%c",point[i]);
 			i++;
 		}
-
 		printf("\n");
 
 	}
 
-
+	free(sectionText);
+	close(fd);
 	return 0;
 }
 //---------------------- Extract End  ----------------------
