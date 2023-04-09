@@ -11,9 +11,10 @@
 #define MAX_PATH_LEN 4100
 #define search_ECHO 0
 #define DEBUG 0
-#define DEBUG_FINDALL 1
+#define DEBUG_FINDALL 0
 int parse_echo = 1;
 int extract_echo = 1;
+int bool_findall=0;
 
 int recursive = 0;
 char *filtering_options = "";
@@ -26,6 +27,7 @@ int nr_of_section = 0;
 int nr_of_line_in_section = 0;
 
 //-------------------- Listing-----------------------------
+void printFindall(char* dirname);
 int has_exec_permission(const char *filepath)
 {
 	struct stat filestat;
@@ -72,17 +74,25 @@ void listDir(char *dirName)
 			continue;
 		}
 
-		if (perm_exe == 0)
+		if(bool_findall==1)
 		{
-			printf("%s\n", name);
+			if (!S_ISDIR(inode.st_mode))
+			{
+				printFindall(name);
+			}
 		}
-		else
-		{
-			if (has_exec_permission(name))
+		else{
+			if (perm_exe == 0)
+			{
 				printf("%s\n", name);
+			}
+			else
+			{
+				if (has_exec_permission(name))
+					printf("%s\n", name);
+			}
 		}
 	}
-
 	closedir(dir);
 }
 void listDirRecusive(char *dirName)
@@ -521,9 +531,43 @@ int extract(char *file_path, int line, int section)
 }
 //---------------------- Extract End  ----------------------
 //----------------------- Findall  -------------------------
+int find_nr_of_lines(char *dir_path){
+	int fd = open(dir_path, O_RDONLY);
+	parse_echo = 0;
+	int readed = parse(dir_path);
+	parse_echo = 1;
+	if(readed < 0)
+		return -1;
+	int enoughSections=0;
+	for(int section=0; section<nr_of_section;section++){
+		int sizeSection = parse_section_size[section];
+		off_t offset = lseek(fd, 0, SEEK_END);
+		offset = parse_section_offset[section];	
+		if (DEBUG_FINDALL)
+			printf("malloc size %d, offset:%ld, offsetSection %d\n", sizeSection + 2 + 100, offset, parse_section_offset[section]);
+		char *sectionText = malloc(sizeSection + 2);
+		//-----------READ-------------
+		pread(fd, sectionText, sizeSection, offset);
+		//------------READ------------
+		int nrLines=0;
+		char* point= strtok(sectionText,"\n");
+		while(point!=NULL){
+			nrLines++;
+			point= strtok(NULL,"\n");
+		}	
+		free(point);
+		free(sectionText);
+		if(nrLines==14)enoughSections++;
+		if(enoughSections>=2){
+			printf("%s\n", dir_path);
+			return 1;
+		}
+	}
+	return 0;
+}
+
 int findallbool(char *dirName, int line, int section)
 {
-
 	int result = extract(dirName, line, section);
 	if (result == 0)
 		return 1;
@@ -533,17 +577,21 @@ int findallbool(char *dirName, int line, int section)
 void printFindall(char *dirName)
 {
 	int result = findallbool(dirName, 1, 1);
+	if(DEBUG_FINDALL){
+		printf("DEBUG: searching: %s\n, lines in sect1%d ", dirName,nr_of_line_in_section);
+		printf("section %d \n", nr_of_section);
+	}
+	
 	int ok = 0;
 	for (int sections = 2; sections <= nr_of_section; sections++)
 	{
 		result = findallbool(dirName, 1, sections);
 		if (result == 1 && nr_of_line_in_section == 14)
 			ok++;
-		if (ok >= 2)
-		{
-			printf("%s\n", dirName);
-			break;
-		}
+	}
+	if (ok >= 2)
+	{
+		printf("%s\n", dirName);
 	}
 }
 
@@ -566,12 +614,15 @@ void findall(char *dirName)
 		snprintf(name, MAX_PATH_LEN, "%s/%s", dirName, dirEntry->d_name);
 
 		lstat(name, &inode);
+		if (!S_ISDIR(inode.st_mode))
+		//printFindall(name);
+		find_nr_of_lines(name);
 		if (strcmp(dirEntry->d_name, ".") == 0 || strcmp(dirEntry->d_name, "..") == 0)
 		{
 			continue;
 		}
-		if (!S_ISDIR(inode.st_mode))
-			printFindall(name);
+		
+	
 	}
 	closedir(dir);
 }
@@ -593,11 +644,11 @@ void findallRecusive(char *dirName)
 
 	while ((dirEntry = readdir(dir)) != 0)
 	{
-
+		
 		snprintf(name, MAX_PATH_LEN, "%s/%s", dirName, dirEntry->d_name);
 
 		lstat(name, &inode);
-
+		if(DEBUG_FINDALL)printf("DEBUG: searching: %s\n,", name);
 		if (S_ISDIR(inode.st_mode))
 		{
 			if (strcmp(dirEntry->d_name, ".") != 0 && strcmp(dirEntry->d_name, "..") != 0)
@@ -723,6 +774,7 @@ int readDirections(int argc, char **argv)
 	else if (strcmp(argv[1], "findall") == 0)
 	{
 		printf("SUCCESS\n");
+		
 		if (argc != 3)
 		{
 			printf("Usage: %s findall path=<dir_path>\n", argv[0]);
@@ -730,10 +782,12 @@ int readDirections(int argc, char **argv)
 		}
 		if (strncmp(argv[2], "path=", 5) == 0)
 		{
+			bool_findall=1;
 			parse_echo = 0;
 			extract_echo = 0;
 			dir_path = &argv[2][5];
 			findallRecusive(dir_path);
+			//listDirRecusive(dir_path);
 		}
 		else
 		{
@@ -746,8 +800,6 @@ int readDirections(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-	// if(DEBUG_FINDALL)printf("SUCCESS\n");
-	// printFindall("test_root/gYV5TqCoI/WUQAYeE3p/OzMXbM/TY9orYa2F/uggfOjKYuZ/LHdeb/ZjTd2Z.5sh");
 	if (argc < 1 || argv == NULL)
 	{
 		printf("Invalid arguments\n");
