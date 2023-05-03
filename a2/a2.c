@@ -5,38 +5,45 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include "a2_helper.h"
-
-void *t8(void *arg){
-    int i = *(int*) arg;
-    info(BEGIN,8,i);
-    info(END,8,i); 
-    return NULL;
-}
-
 void *t2(void *arg){
     int i = *(int*) arg;
     info(BEGIN,2,i);
     info(END,2,i); 
+    exit(0);
+}
+
+void *t8(void *arg){
+    int i = *(int*) arg;
+    info(BEGIN,8,i);
+    if(i==1){
+        pthread_t thread2 ;
+        int* aux = malloc(sizeof(*arg));
+        *aux=2;
+        pthread_create(&thread2, NULL, t8, aux);
+        pthread_join(thread2, NULL);
+    }
+    info(END,8,i); 
     return NULL;
 }
+
 
 void *p8(void *arg){
     info(BEGIN,8,0);
 
-    pthread_t thread[5];
-    for(int i=1; i<=4; i++){
+    pthread_t thread[3];
+    int* aux = malloc(sizeof(*arg));
+    *aux=1;
+    pthread_create(&thread[0], NULL, t8, aux);
+    pthread_join(thread[0], NULL);
+    for(int i=3; i<5; i++){
         int* arg = malloc(sizeof(*arg));
         *arg = i;
-        pthread_create(&thread[i], NULL, t8, arg);
-        if(i!=1){ 
-            pthread_join(thread[i], NULL);
-        }
-        if(i==2) {
-            pthread_join(thread[2], NULL);
-            pthread_join(thread[1], NULL);
-        }
-       
+        //printf("Ce cacat se intapla aici?%d\n",i);
+        pthread_create(&thread[i-2], NULL, t8, arg);
+        pthread_join(thread[i-2], NULL);
     }
+    
+ 
 
     info(END,8,0);    
 
