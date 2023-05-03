@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <pthread.h>
+#include <stdlib.h>
 #include "a2_helper.h"
 
 void *p7(void *arg){
@@ -15,9 +16,14 @@ void *p7(void *arg){
 void *p6(void *arg){
     info(BEGIN,6,0);
 
-    pthread_t thread7;
-    pthread_create(&thread7, NULL, p7, NULL);
-    pthread_join(thread7, NULL);
+    pid_t pid7;
+
+    pid7 = fork();
+    if (pid7 == 0) {
+        p7(NULL);
+        exit(0);
+    }
+    waitpid(pid7, NULL, 0);
 
     info(END,6,0);    
     return NULL;
@@ -31,20 +37,25 @@ void *p8(void *arg){
     return NULL;
 }
 
-void *p4 (void *arg){
-    
-    info(BEGIN,4,0);
+void *p4 (void *arg) {
+    info(BEGIN, 4, 0);
 
-    pthread_t thread6;
-    pthread_create(&thread6, NULL, p6, NULL);
-    pthread_join(thread6, NULL);
-        
-    pthread_t thread8;
-    pthread_create(&thread8, NULL, p8, NULL);
-    pthread_join(thread8, NULL);
+    pid_t pid6, pid8;
 
+    pid6 = fork();
+    if (pid6 == 0) {
+        p6(NULL);
+        exit(0);
+    }
+    waitpid(pid6, NULL, 0);
+    pid8 = fork();
+    if (pid8 == 0) {
+        p8(NULL);
+        exit(0);
+    }
+    waitpid(pid8, NULL, 0);
 
-    info(END,4,0);    
+    info(END, 4, 0);
     return NULL;
 }
 
@@ -58,13 +69,23 @@ void *p2(void *arg){
 
     info(BEGIN,2,0);
 
-    pthread_t thread3;
-    pthread_create(&thread3, NULL, p3, NULL);
-    pthread_join(thread3, NULL);
+    pid_t pid3;
 
-    pthread_t thread4;
-    pthread_create(&thread4, NULL, p4, NULL);
-    pthread_join(thread4, NULL);
+    pid3 = fork();
+    if (pid3 == 0) {
+        p3(NULL);
+        exit(0);
+    }
+    waitpid(pid3, NULL, 0);
+
+    pid_t pid4;
+
+    pid4 = fork();
+    if (pid4 == 0) {
+        p4(NULL);
+        exit(0);
+    }
+    waitpid(pid4, NULL, 0);
 
     info(END,2,0);
     return NULL;
@@ -79,13 +100,24 @@ void *p5(void *arg){
 
 void *p1(void *arg){
 
-    pthread_t thread2;
-    pthread_create(&thread2, NULL, p2, NULL);
-    pthread_join(thread2, NULL);
+    pid_t pid2;
+
+    pid2 = fork();
+    if (pid2 == 0) {
+        p2(NULL);
+        exit(0);
+    }
+    waitpid(pid2, NULL, 0);
+
     
-    pthread_t thread5;
-    pthread_create(&thread5, NULL, p5, NULL);
-    pthread_join(thread5, NULL);
+    pid_t pid5;
+
+    pid5 = fork();
+    if (pid5 == 0) {
+        p5(NULL);
+        exit(0);
+    }
+    waitpid(pid5, NULL, 0);
 
     return NULL;
 }
