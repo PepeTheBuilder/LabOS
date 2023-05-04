@@ -7,15 +7,13 @@
 #include <stdlib.h>
 #include "a2_helper.h"
 
-sem_t sem;
-// void t2init(int index, pthread_t threadV){
-//     pthread_create(&threadV, NULL, t2,(int*)&index);
-//     // printf("thread nr %d\n",index);
-// }
+sem_t sem,thread11;
+int ok=0;
 void P(sem_t *sem)
 {
     sem_wait(sem);
 }
+
 void V(sem_t *sem)
 {
     sem_post(sem);
@@ -118,7 +116,14 @@ void *t2(void *arg){
     int i = *(int*) arg;
     P(&sem);
     info(BEGIN,2,i);
-    info(END,2,i); 
+    if(i==1||i==2||i==3||i==11){
+        V(&thread11);
+        while(ok==0&&i!=11){
+            
+        }
+        P(&thread11);
+    }
+    info(END,2,i);
     V(&sem);
     return NULL;
 }
@@ -136,8 +141,9 @@ void *p2(void *arg){
         exit(0);
     }
     pthread_t thread[43];
-    for(int i=1; i<41; i++)
-        sem_init(&sem, 0, 4); 
+    
+    sem_init(&sem, 0, 4); 
+    sem_init(&thread11,0,0);
     
     for(int i=1; i<41; i++){
 
@@ -146,11 +152,30 @@ void *p2(void *arg){
         pthread_create(&thread[i], NULL, t2, aux);
     }
 
-    for(int i=1; i<41; i+=4){        
+    for(int i=1; i<41; i+=4){  
+        if(i==1) pthread_join(thread[4],NULL);  
+        else{  
+        if(i+2==11){
+            int value=1;
+            while(value==4)
+            {
+                sem_getvalue(&thread11,&value);
+            }
+        pthread_join(thread[11],NULL);
+            ok=1;
+        pthread_join(thread[1],NULL);
+        pthread_join(thread[2],NULL);
+        pthread_join(thread[3],NULL);
+
+        }
+        else{
+            pthread_join(thread[i+2],NULL);
+        }
         pthread_join(thread[i+3],NULL);
-        pthread_join(thread[i+2],NULL);
         pthread_join(thread[i+1],NULL);
         pthread_join(thread[i],NULL);
+        }
+        
     }
 
     for(int i=1; i<41; i++)
