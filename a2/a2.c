@@ -2,15 +2,24 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <semaphore.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include "a2_helper.h"
 
+sem_t sem;
 // void t2init(int index, pthread_t threadV){
 //     pthread_create(&threadV, NULL, t2,(int*)&index);
 //     // printf("thread nr %d\n",index);
 // }
-
+void P(sem_t *sem)
+{
+    sem_wait(sem);
+}
+void V(sem_t *sem)
+{
+    sem_post(sem);
+}
 
 void *t8(void *arg){
     int i = *(int*) arg;
@@ -107,8 +116,10 @@ void *p3(void *arg){
 
 void *t2(void *arg){
     int i = *(int*) arg;
+    P(&sem);
     info(BEGIN,2,i);
     info(END,2,i); 
+    V(&sem);
     return NULL;
 }
 
@@ -125,22 +136,25 @@ void *p2(void *arg){
         exit(0);
     }
     pthread_t thread[43];
+    for(int i=1; i<41; i++)
+        sem_init(&sem, 0, 4); 
     
     for(int i=1; i<41; i++){
 
         int* aux = malloc(sizeof(*arg));
         *aux = i;
         pthread_create(&thread[i], NULL, t2, aux);
-        printf("thread nr %d\n",i);
-        if(i-1%4==0&&i>3){
-            pthread_join(thread[i+3], NULL); 
-            pthread_join(thread[i+2], NULL); 
-            pthread_join(thread[i+1], NULL); 
-            pthread_join(thread[i], NULL); 
-
-        }
-
     }
+
+    for(int i=1; i<41; i+=4){        
+        pthread_join(thread[i+3],NULL);
+        pthread_join(thread[i+2],NULL);
+        pthread_join(thread[i+1],NULL);
+        pthread_join(thread[i],NULL);
+    }
+
+    for(int i=1; i<41; i++)
+        sem_destroy(&sem);
     waitpid(pid3, NULL, 0);
 
     pid_t pid4;
