@@ -5,12 +5,12 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include "a2_helper.h"
-void *t2(void *arg){
-    int i = *(int*) arg;
-    info(BEGIN,2,i);
-    info(END,2,i); 
-    exit(0);
-}
+
+// void t2init(int index, pthread_t threadV){
+//     pthread_create(&threadV, NULL, t2,(int*)&index);
+//     // printf("thread nr %d\n",index);
+// }
+
 
 void *t8(void *arg){
     int i = *(int*) arg;
@@ -26,7 +26,6 @@ void *t8(void *arg){
     return NULL;
 }
 
-
 void *p8(void *arg){
     info(BEGIN,8,0);
 
@@ -38,12 +37,9 @@ void *p8(void *arg){
     for(int i=3; i<5; i++){
         int* arg = malloc(sizeof(*arg));
         *arg = i;
-        //printf("Ce cacat se intapla aici?%d\n",i);
         pthread_create(&thread[i-2], NULL, t8, arg);
         pthread_join(thread[i-2], NULL);
     }
-    
- 
 
     info(END,8,0);    
 
@@ -91,6 +87,7 @@ void *p4(void *arg){
         exit(0);
     }
     waitpid(pid6, NULL, 0);
+
     pid8 = fork();
     if (pid8 == 0) {
         p8(NULL);
@@ -108,9 +105,17 @@ void *p3(void *arg){
     return NULL;
 }
 
+void *t2(void *arg){
+    int i = *(int*) arg;
+    info(BEGIN,2,i);
+    info(END,2,i); 
+    return NULL;
+}
+
 void *p2(void *arg){
 
     info(BEGIN,2,0);
+
 
     pid_t pid3;
 
@@ -118,6 +123,23 @@ void *p2(void *arg){
     if (pid3 == 0) {
         p3(NULL);
         exit(0);
+    }
+    pthread_t thread[43];
+    
+    for(int i=1; i<41; i++){
+
+        int* aux = malloc(sizeof(*arg));
+        *aux = i;
+        pthread_create(&thread[i], NULL, t2, aux);
+        printf("thread nr %d\n",i);
+        if(i-1%4==0&&i>3){
+            pthread_join(thread[i+3], NULL); 
+            pthread_join(thread[i+2], NULL); 
+            pthread_join(thread[i+1], NULL); 
+            pthread_join(thread[i], NULL); 
+
+        }
+
     }
     waitpid(pid3, NULL, 0);
 
@@ -129,20 +151,7 @@ void *p2(void *arg){
         exit(0);
     }
     waitpid(pid4, NULL, 0);
-
-    // pthread_t thread[40];
-    // for(int i=1; i<=40; i++){
-    //     int* arg = malloc(sizeof(*arg));
-    //     *arg = i;
-    //     pthread_create(&thread[i], NULL, t2, arg);
-
-    //     pthread_join(thread[i], NULL);
-    //     if(i == 11){
-    //         pthread_join(thread[11],NULL);
-    //     }
     
-    // }
-
     info(END,2,0);
     return NULL;
 }
