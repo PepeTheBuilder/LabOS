@@ -8,60 +8,92 @@
 #include <fcntl.h>
 #include "a2_helper.h"
 
-sem_t sem,thread11,*t6_complete,*t8_end;
-pthread_t tredu;
-int ok=0,end8=0,end6=0;
-
-void P(sem_t *sem)
-{
-    sem_wait(sem);
-}
-
-void V(sem_t *sem)
-{
-    sem_post(sem);
-}
+sem_t sem,*thread11,*t6_complete,*t8_end,*t2sem1,*t2sem2,*t2sem3;
+pthread_t tred[3];
+int ok=0,end8=0,end6=0,*zici=NULL;
 
 void *t2(void *arg){
     int i = *(int*) arg;
-    P(&sem);
+    sem_wait(&sem);
     info(BEGIN,2,i);
-    if(i==1||i==2||i==3||i==11){
-        V(&thread11);
-        while(ok==0&&i!=11){
-            
-        }
-        P(&thread11);
+    if(i==1){
+
+        sem_post(t2sem1);
+        sem_wait(thread11);
+        // sem_post(&thread11);
+        // printf("Is in procesul 2 threadu'  = %d si astept\n",i);
+        // while(zici==0&&i!=11){        
+        // }
+        // printf("Is in procesul 2 threadu'  = %d si NU mai astept\n",i);
+        // sem_wait(&thread11);
     }
+    if(i==2){
+
+        sem_post(t2sem2);
+        sem_wait(thread11);
+    }
+    if(i==3){
+
+        sem_post(t2sem3);
+        sem_wait(thread11);
+    }
+    if(i==11){
+        for(int i=1; i<4; i++){
+            int* aux = malloc(sizeof(*arg));
+            *aux = i;
+            pthread_create(&tred[i-1], NULL, t2, aux);
+
+        }
+            printf("WAIIT\n");
+        sem_wait(t2sem1);
+            printf("Sem1 ok \n");
+        sem_wait(t2sem2);
+            printf("Sem2 ok \n");
+        sem_wait(t2sem3);
+            printf("Sem3 ok \n");
+    }
+
     info(END,2,i);
-    V(&sem);
+
+    if(i==11){
+        printf("NOW CLOSE\n");
+    sem_post(thread11);
+    sem_post(thread11);
+    sem_post(thread11);
+    
+    pthread_join(tred[0],NULL);
+    pthread_join(tred[1],NULL);
+    pthread_join(tred[2],NULL);
+    }
+
+    sem_post(&sem);
     pthread_exit(NULL);
 }
 
-void *t6(void *arg) {
+void *t6(void *arg){
     int i = *(int*) arg;
     if (i == 2) {
-        printf("astept pt end8\n");
-        P(t8_end);
-        printf("GATA end8 \n");
+        // printf("astept pt end8\n");
+        // sem_wait(t8_end);
+        // printf("GATA end8 \n");
     }
     info(BEGIN, 6, i);
 
     info(END, 6, i);
     if (i == 5) {
-        end6 = 1;
-        printf("end6 = 1\n");
-        V(t6_complete); // signal completion of p6 thread[6]
+        // end6 = 1;
+        // printf("end6 = 1\n");
+        // sem_post(t6_complete); // signal completion of p6 thread[6]
     }
     pthread_exit(NULL);
 }
 
-void *t8(void *arg) {
+void *t8(void *arg){
     int i = *(int*) arg;
     if (i == 3) {
-        printf("astept pt end6\n");
-        P(t6_complete); // wait for completion of p6 thread[6]
-        printf("GATA end6 \n");
+        // printf("astept pt end6\n");
+        // sem_wait(t6_complete); // wait for completion of p6 thread[6]
+        // printf("GATA end6 \n");
     }
     if(i==2){
         
@@ -78,12 +110,11 @@ void *t8(void *arg) {
     }else
     info(END, 8, i);
     if (i == 3) {
-        V(t8_end);
-        printf("end8=1\n");
+        // sem_post(t8_end);
+        // printf("end8=1\n");
     }
     pthread_exit(NULL);
 }
-
 
 void *p8(void *arg){
     info(BEGIN,8,0);
@@ -139,12 +170,11 @@ void *p6(void *arg){
         pthread_join(thread[i],NULL);
         
     }
-    tredu=thread[3];
 
     waitpid(pid7, NULL, 0);
     
     // wait for threads in p8 to complete
-    pthread_join(tredu, NULL);
+    pthread_join(thread[3], NULL);
     
     info(END,6,0);    
     return NULL;
@@ -189,8 +219,6 @@ void *p3(void *arg){
 void *p2(void *arg){
 
     info(BEGIN,2,0);
-
-
     pid_t pid3;
 
     pid3 = fork();
@@ -199,34 +227,31 @@ void *p2(void *arg){
         exit(0);
     }
     pthread_t thread[43];
+    thread11 = malloc(sizeof(sem_t));
+    t2sem1 = malloc(sizeof(sem_t));
+    t2sem2 = malloc(sizeof(sem_t));
+    t2sem3 = malloc(sizeof(sem_t));
+    sem_init(&sem, 0, 4);
+    sem_init(t2sem1,0,0);
+    sem_init(t2sem2,0,0);
+    sem_init(t2sem3,0,0);
+    sem_init(thread11,0,0);
     
-    sem_init(&sem, 0, 4); 
-    sem_init(&thread11,0,0);
-    
-    for(int i=1; i<41; i++){
 
-        int* aux = malloc(sizeof(*arg));
-        *aux = i;
-        pthread_create(&thread[i], NULL, t2, aux);
+    for(int i=4; i<41; i++){
+        if(i!=11){
+            int* aux = malloc(sizeof(*arg));
+            *aux = i;
+            pthread_create(&thread[i], NULL, t2, aux);
+        }
     }
 
     for(int i=1; i<41; i+=4){  
         if(i==1) pthread_join(thread[4],NULL);  
         else{  
-        if(i+2==11){
-            int value=1;
-            while(value==4)
-            {
-                sem_getvalue(&thread11,&value);
-            }
-        pthread_join(thread[11],NULL);
-            ok=1;
-        pthread_join(thread[1],NULL);
-        pthread_join(thread[2],NULL);
-        pthread_join(thread[3],NULL);
-
+        if(i+2==11){ 
         }
-        else{
+        else {
             pthread_join(thread[i+2],NULL);
         }
         pthread_join(thread[i+3],NULL);
@@ -236,8 +261,15 @@ void *p2(void *arg){
         
     }
 
-    for(int i=1; i<41; i++)
-        sem_destroy(&sem);
+    int* aux = malloc(sizeof(*arg));
+    *aux = 11;
+    tred[0]=thread[1];
+    tred[1]=thread[2];
+    tred[2]=thread[3];
+    pthread_create(&thread[11], NULL, t2, aux);
+    pthread_join(thread[11],NULL);
+
+    sem_destroy(&sem);
     waitpid(pid3, NULL, 0);
 
     pid_t pid4;
@@ -281,6 +313,8 @@ int main(){
     init();
 
     info(BEGIN, 1, 0);
+    t6_complete = malloc(sizeof(sem_t));
+    t8_end = malloc(sizeof(sem_t));
     t6_complete=sem_open("t6.3_done",O_CREAT,0644, 0);
     t8_end=sem_open("p8.3_done",O_CREAT,0644, 0);
     
