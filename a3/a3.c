@@ -9,15 +9,11 @@
 
 #define FILE_WRITE "RESP_PIPE_22794"
 #define FILE_READ "REQ_PIPE_22794"
+#define TOTUNSTIRNG "VARIANT$22794VALUE$"
 #define VARIANT "VARIANT$"
 #define VALUE "VALUE$"
 #define HELLO "HELLO$"
-
 int varianta = 22794;
-char aux;
-char msg[200] = "";
-int dimensionMsg = 0;
-int i = 0;
 
 int main(int argc, char **argv)
 {
@@ -47,7 +43,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (write(fdw, HELLO, 7) == 7)
+    if (write(fdw, HELLO, 6) == 6)
     {
         printf("SUCCESS\n");
     }
@@ -64,7 +60,7 @@ int main(int argc, char **argv)
         int m=0;
         while ((bytesRead = read(fdr, &buffer[m], 1)) > 0)
         {
-            printf("%c",buffer[m]);
+            // printf("%c",buffer[m]);
             if (buffer[m] == '$')
             {
                 break;
@@ -72,15 +68,15 @@ int main(int argc, char **argv)
             m++;
         }
         buffer[m]='\0';
-        // printf("Am citit:%s",buffer);
 
-        if (strstr(msg, "VARIANT$"))
+        if (strncmp(buffer, "VARIANT",8)==0)
         {
-            write(fdw, VARIANT, 9);
-            write(fdw, &varianta, sizeof(varianta));
-            write(fdw, VALUE, 7);
+            write(fdw, "VARIANT$", 8);  
+            write(fdw, &varianta, 4);
+            write(fdw, "VALUE$", 6);
         }
-        if (strstr(msg, "EXIT$"))
+
+        if (strstr(buffer, "EXIT"))
         {
             close(fdr);
             close(fdw);
